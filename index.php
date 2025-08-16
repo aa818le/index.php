@@ -1,72 +1,108 @@
 <?php
-header("Content-Type: application/json");
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
-// --- Database ulanish (agar kerak bo‘lsa) ---
-// $pdo = new PDO("mysql:host=localhost;dbname=test", "root", "");
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 
-// So‘rov endpointini aniqlash
-$endpoint = $_GET['endpoint'] ?? null;
-$data = json_decode(file_get_contents("php://input"), true);
+$endpoint = isset($_GET['endpoint']) ? $_GET['endpoint'] : null;
+
+// Demo userlar
+$users = [
+    "1334440087" => [
+        "password" => "AiemA43f",
+        "country"  => "UZ",
+        "currency" => "UZS",
+        "balance"  => 9999999999
+    ]
+];
 
 switch ($endpoint) {
-
-    // 🔹 Registration
     case "register":
+        $data = json_decode(file_get_contents("php://input"), true);
         $username = $data['username'] ?? null;
         $password = $data['password'] ?? null;
-        $country  = $data['country'] ?? "UZ";
-        $currency = $data['currency'] ?? "сўм";
 
-        if ($username && $password) {
-            // DB saqlash mumkin, hozircha faqat javob
-            echo json_encode([
-                "status" => "ok",
-                "message" => "User registered",
-                "username" => $username,
-                "balance" => 0,
-                "currency" => $currency,
-                "country"  => $country
-            ]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "Missing fields"]);
+        if (!$username || !$password) {
+            echo json_encode(["status"=>"error","message"=>"username yoki password yo'q"]);
+            exit();
         }
+
+        if (isset($users[$username])) {
+            echo json_encode(["status"=>"error","message"=>"foydalanuvchi allaqachon mavjud"]);
+            exit();
+        }
+
+        $users[$username] = [
+            "password"=>$password,
+            "country"=>"UZ",
+            "currency"=>"UZS",
+            "balance"=>9999999999
+        ];
+
+        echo json_encode([
+            "status"=>"ok",
+            "user_id"=>$username,
+            "balance"=>9999999999,
+            "currency"=>"UZS",
+            "country"=>"UZ"
+        ]);
         break;
 
-    // 🔹 Authentication
     case "auth":
+        $data = json_decode(file_get_contents("php://input"), true);
         $username = $data['username'] ?? null;
         $password = $data['password'] ?? null;
 
-        // oddiy tekshiruv
-        if ($username && $password) {
-            echo json_encode([
-                "status" => "ok",
-                "message" => "User authenticated",
-                "token"   => md5($username.time()),
-                "balance" => 100  // misol uchun
-            ]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "Invalid credentials"]);
+        if (!$username || !$password || !isset($users[$username])) {
+            echo json_encode(["status"=>"error","message"=>"login xato"]);
+            exit();
         }
+
+        if ($users[$username]['password'] !== $password) {
+            echo json_encode(["status"=>"error","message"=>"parol xato"]);
+            exit();
+        }
+
+        echo json_encode([
+            "status"=>"ok",
+            "user_id"=>$username,
+            "balance"=>$users[$username]['balance'],
+            "currency"=>$users[$username]['currency'],
+            "country"=>$users[$username]['country']
+        ]);
         break;
 
-    // 🔹 Get Balance
     case "balance":
-        $user_id = $data['user_id'] ?? null;
-
-        if ($user_id) {
-            echo json_encode([
-                "status" => "ok",
-                "user_id" => $user_id,
-                "balance" => 0,
-                "currency" => "сўм"
-            ]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "Missing user_id"]);
+        $username = $_GET['user'] ?? null;
+        if (!$username || !isset($users[$username])) {
+            echo json_encode(["status"=>"error","message"=>"user topilmadi"]);
+            exit();
         }
+
+        echo json_encode([
+            "status"=>"ok",
+            "user_id"=>$username,
+            "balance"=>$users[$username]['balance'],
+            "currency"=>$users[$username]['currency'],
+            "country"=>$users[$username]['country']
+        ]);
+        break;
+
+    case "refresh":
+        echo json_encode([
+            "status"=>"ok",
+            "message"=>"token yangilandi"
+        ]);
         break;
 
     default:
-        echo json_encode(["status" => "error", "message" => "Unknown endpoint"]);
-        break;
+        echo json_encode([
+            "status"=>"error",
+            "message"=>"noto'g'ri endpoint"
+        ]);
 }
